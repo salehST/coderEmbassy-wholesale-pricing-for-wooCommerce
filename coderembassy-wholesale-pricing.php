@@ -27,13 +27,7 @@ define('CEWP_FILE',     __FILE__);
 define('CEWP_DIR',      plugin_dir_path(__FILE__));
 define('CEWP_URL',      plugin_dir_url(__FILE__));
 define('CEWP_BASENAME', plugin_basename(__FILE__));
-// Plugin is fully functional; no tier or rule limits.
-if (! function_exists('cewp_is_pro')) {
-    function cewp_is_pro(): bool
-    {
-        return false;
-    }
-}
+
 
 // ── Autoloader ───────────────────────────────────────────────────────────────
 spl_autoload_register(function (string $class) {
