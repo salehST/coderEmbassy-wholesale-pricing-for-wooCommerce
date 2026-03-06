@@ -184,22 +184,6 @@ class Database {
         return (int) $wpdb->get_var( "SELECT COUNT(*) FROM " . self::t('prices') );
     }
 
-    public static function is_at_limit(): bool {
-        return false;
-    }
-
-    /** All rule IDs (all rules are manageable). */
-    public static function get_manageable_rule_ids(): array {
-        global $wpdb;
-        $ids = $wpdb->get_col( "SELECT id FROM " . self::t( 'prices' ) . " ORDER BY id ASC" );
-        return array_map( 'intval', $ids ?: [] );
-    }
-
-    /** Whether this rule can be edited in admin (all rules can). */
-    public static function is_rule_manageable( int $rule_id ): bool {
-        return true;
-    }
-
     /** Check if a rule already exists for this product (or variation) and scope. */
     public static function rule_exists( int $product_id, int $variation_id, string $scope_type, string $scope_value, ?int $exclude_id = null ): bool {
         global $wpdb;
@@ -309,17 +293,8 @@ class Database {
         global $wpdb;
         return [
             'total_rules'   => (int) $wpdb->get_var( "SELECT COUNT(*) FROM " . self::t('prices') ),
-            'total_groups'  => 0,
-            'total_dealers' => 0,
             'total_products'=> (int) $wpdb->get_var( "SELECT COUNT(DISTINCT product_id) FROM " . self::t('prices') ),
-            'rule_limit'    => 0,
-            'rules_used'    => self::get_rule_count(),
         ];
-    }
-
-    /** Min order: display-only notice (no enforcement). */
-    public static function get_min_order( string $role_key ): ?object {
-        return null;
     }
 
     /** Product IDs that have at least one price rule for the given role(s). Used to hide retail-only products from wholesale. */

@@ -303,7 +303,6 @@ function statCard(val, label) {
 
 function renderDashboard() {
   const s = state.stats;
-  const rulesUsed = s.rules_used ?? s.total_rules ?? 0;
   return `
     <div class="dpp-grid">
       <div class="dpp-hero">
@@ -331,8 +330,6 @@ async function loadDashboard() {
     state.stats = {
       total_rules:   stats.total_rules ?? 0,
       total_products: stats.total_products ?? 0,
-      rules_used:    stats.rules_used ?? stats.total_rules ?? 0,
-      rule_limit:   stats.rule_limit ?? 0,
     };
     const statsEl = document.getElementById('dpp-stats');
     if (statsEl) {
@@ -359,7 +356,6 @@ async function loadDashboard() {
 // PRICE RULES (scope_type always "role", scope_value = role slug)
 // ════════════════════════════════════════
 function renderPricesPage() {
-  const rulesUsed = state.stats.rules_used ?? state.stats.total_rules ?? 0;
   return `
     <div class="dpp-pagehead">
       <div>
@@ -424,7 +420,8 @@ async function loadPrices() {
     state.prices.rows  = data.rows || [];
     state.prices.total = data.total || 0;
 
-    document.getElementById('dpp-price-count').textContent = `${state.prices.total} rules`;
+    const countEl = document.getElementById('dpp-price-count');
+    if (countEl) countEl.textContent = `${state.prices.total} rules`;
 
     const tbl = document.getElementById('dpp-prices-table');
     if (!tbl) return;

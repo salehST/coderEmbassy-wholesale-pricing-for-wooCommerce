@@ -69,9 +69,8 @@ class Controller {
             'scope_value' => $r->get_param('scope_value')?? '',
             'price_type'  => $r->get_param('price_type')?? '',
         ]);
-        $manageable_ids = Database::get_manageable_rule_ids();
         foreach ( $out['rows'] as $row ) {
-            $row->manageable = in_array( (int) $row->id, $manageable_ids, true );
+            $row->manageable = true;
         }
         return self::json( $out );
     }

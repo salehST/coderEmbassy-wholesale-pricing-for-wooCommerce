@@ -43,7 +43,6 @@ class Menu
             'logo_light'   => CEWP_URL . 'assets/logo-light.png',
             'logo_dark'    => CEWP_URL . 'assets/logo-dark.png',
             'version'     => CEWP_VERSION,
-            'rules_used'  => \CEWP\Database::get_rule_count(),
         ]);
     }
 

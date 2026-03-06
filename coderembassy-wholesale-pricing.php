@@ -57,7 +57,6 @@ add_action('plugins_loaded', function () {
     \CEWP\Database::install_if_needed();
     \CEWP\Roles::init();
     \CEWP\Pricing::init();
-    \CEWP\MinOrder::init();
     \CEWP\Visibility::init();
     \CEWP\Admin\Menu::init();
     \CEWP\Admin\ProductMeta::init();
