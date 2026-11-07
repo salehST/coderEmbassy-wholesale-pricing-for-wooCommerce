@@ -29,12 +29,12 @@ class Import {
             try {
                 $result = self::import_price_row( $row );
                 if ( $result === false ) {
-                    $errors[] = "Row " . ($i+2) . ": Could not save rule (duplicate or invalid).";
-                    break;
+                    $errors[] = "Row " . ($row['_source_line'] ?? ($i+2)) . ": Could not save rule (duplicate or invalid).";
+                    continue;
                 }
                 $count++;
             } catch ( \Throwable $e ) {
-                $errors[] = "Row " . ($i+2) . ": " . $e->getMessage();
+                $errors[] = "Row " . ($row['_source_line'] ?? ($i+2)) . ": " . $e->getMessage();
             }
         }
 
@@ -61,24 +61,31 @@ class Import {
         $rows = [];
         $lines = explode( "\n", str_replace( "\r\n", "\n", $contents ) );
         $headers = null;
-        foreach ( $lines as $line ) {
+        foreach ( $lines as $index => $line ) {
             if ( empty( trim( $line ) ) ) {
                 continue;
             }
             $csv_line = str_getcsv( $line );
             if ( $headers === null ) {
-                $headers = array_map( 'trim', $csv_line );
-                continue;
+                if ( ! is_numeric( trim( $csv_line[0] ?? '' ) ) ) {
+                    $headers = array_map( 'trim', $csv_line );
+                    continue;
+                }
+                $headers = [ 'product_id', 'scope_type', 'scope_value', 'price_type', 'price_value', 'date_from', 'date_to' ];
             }
             if ( count( $csv_line ) !== count( $headers ) ) {
+                $rows[] = [ '_source_line' => $index + 1, '_row_error' => 'Invalid column count.' ];
                 continue;
             }
-            $rows[] = array_combine( $headers, array_map( 'trim', $csv_line ) );
+            $row = array_combine( $headers, array_map( 'trim', $csv_line ) );
+            $row['_source_line'] = $index + 1;
+            $rows[] = $row;
         }
         return $rows;
     }
 
     private static function import_price_row( array $row ): bool {
+        if ( isset( $row['_row_error'] ) ) throw new \Exception( $row['_row_error'] );
         $scope_value = $row['scope_value'] ?? '';
         if ( ($row['scope_type'] ?? '') === 'user' && str_contains($scope_value, '@') ) {
             $user = get_user_by('email', $scope_value);
@@ -93,7 +100,9 @@ class Import {
         if ( ! $product_id && ! empty($row['product_sku']) ) {
             $product_id = (int)wc_get_product_id_by_sku($row['product_sku']);
         }
-        if ( ! $product_id ) throw new \Exception("Invalid product_id");
+        if ( ! $product_id || ! wc_get_product( $product_id ) ) throw new \Exception("Invalid product_id");
+        if ( ! in_array( $row['price_type'] ?? '', [ 'fixed', 'percent_discount', 'fixed_discount' ], true ) ) throw new \Exception("Invalid price_type");
+        if ( ! is_numeric( $row['price_value'] ?? null ) ) throw new \Exception("Invalid price_value");
 
         $result = Database::save_price([
             'product_id'   => $product_id,
@@ -104,8 +113,8 @@ class Import {
             'price_value'  => (float)($row['price_value'] ?? 0),
             'sale_price'   => isset($row['sale_price']) && $row['sale_price'] !== '' ? (float)$row['sale_price'] : null,
             'min_qty'      => absint($row['min_qty'] ?? 1),
-            'date_from'    => $row['date_from'] ?: null,
-            'date_to'      => $row['date_to']   ?: null,
+            'date_from'    => ($row['date_from'] ?? '') ?: null,
+            'date_to'      => ($row['date_to'] ?? '') ?: null,
         ]);
         return $result;
     }

@@ -18,7 +18,9 @@ async function api(path, method = 'GET', body = null) {
     headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
   };
   if (body) opts.body = JSON.stringify(body);
-  const res = await fetch(API + path, opts);
+  // Plain permalinks keep the route in a query string (index.php?rest_route=...), so extra parameters must join it with '&'.
+  const url = API.indexOf('?') !== -1 ? API + path.replace('?', '&') : API + path;
+  const res = await fetch(url, opts);
   const text = await res.text();
   if (!res.ok) {
     const err = new Error(text);
@@ -50,6 +52,17 @@ const icons = {
   prices:    `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`,
   import:    `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5-5 5 5"/><path d="M12 5v14"/></svg>`,
   settings:  `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
+  users:     `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6m2 3a5 5 0 0 1 2 4v2"/></svg>`,
+  layers:    `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5M3 16l9 5 9-5"/></svg>`,
+  discount:  `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="m3 12 9-9h8a1 1 0 0 1 1 1v8l-9 9-9-9Z"/><circle cx="16.5" cy="7.5" r="1"/></svg>`,
+  cart:      `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M2 4h2l2.5 11h11.8l2-8H5M8 20h.01M18 20h.01"/></svg>`,
+  truck:     `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M2 6h12v11H2zM14 10h4l4 4v3h-8z"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>`,
+  payment:   `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>`,
+  currency:  `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M15 8H9a2 2 0 0 0 0 4h6a2 2 0 0 1 0 4H9m3-10v12"/></svg>`,
+  eye:       `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>`,
+  upload:    `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 16V3m-5 5 5-5 5 5M4 16v4h16v-4"/></svg>`,
+  clipboard: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="18" rx="2"/><path d="M9 4V2h6v2M8 10h8M8 14h8M8 18h5"/></svg>`,
+  license:   `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="8" cy="12" r="4"/><path d="M12 12h9m-3 0v3m-3-3v2"/></svg>`,
   plus:      `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>`,
   edit:      `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
   trash:     `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>`,
@@ -71,6 +84,17 @@ const state = {
 };
 
 // ── Utilities ──────────────────────────────────────────────
+const coreTabIds = new Set(['dashboard', 'prices', 'import', 'settings']);
+const approvedTabs = new Map((Array.isArray(CEWP.tabs) ? CEWP.tabs : [])
+  .filter(tab => tab && typeof tab.id === 'string' && !coreTabIds.has(tab.id)).map(tab => [tab.id, tab]));
+const tabRenderers = new Map();
+const openNavGroups = new Set();
+window.CEWP.registerTab = function(id, render) {
+  if (!approvedTabs.has(id) || tabRenderers.has(id) || typeof render !== 'function') return false;
+  tabRenderers.set(id, render);
+  return true;
+};
+
 function escHtml(str) {
   return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
@@ -98,7 +122,13 @@ function toggleTheme() {
   state.theme = state.theme === 'dark' ? 'light' : 'dark';
   if (root.dataset) root.dataset.theme = state.theme;
   localStorage.setItem('cewp_theme', state.theme);
-  render();
+  // Changing appearance must not discard a form that an admin is editing.
+  const button = root.querySelector('#dpp-theme-toggle');
+  if (button) button.innerHTML = state.theme === 'dark' ? icons.sun : icons.moon;
+  const logo = root.querySelector('.dpp-brand-logo');
+  if (logo) logo.src = state.theme === 'dark' ? CEWP.logo_dark : CEWP.logo_light;
+  const footer = root.querySelector('.dpp-sidenav-footer strong');
+  if (footer) footer.textContent = state.theme === 'dark' ? 'Dark' : 'Light';
 }
 
 // ── Modal factory: one overlay at a time, no duplicate IDs ──
@@ -106,12 +136,13 @@ function createModal(title, body, onSave) {
   // Remove any existing modal so we never have duplicate IDs
   root.querySelectorAll('.dpp-overlay').forEach(el => el.remove());
 
+  const opener = document.activeElement;
   const ov = document.createElement('div');
   ov.className = 'dpp-overlay';
   ov.innerHTML = `
-    <div class="dpp-modal">
+    <div class="dpp-modal" role="dialog" aria-modal="true" aria-labelledby="dpp-modal-title">
       <div class="dpp-modal-header">
-        <div class="dpp-modal-title">${title}</div>
+        <div class="dpp-modal-title" id="dpp-modal-title">${title}</div>
         <button type="button" class="dpp-modal-close" aria-label="Close">${icons.close}</button>
       </div>
       <div class="dpp-modal-body">${body}</div>
@@ -123,7 +154,17 @@ function createModal(title, body, onSave) {
   `;
   root.appendChild(ov);
 
-  const close = () => ov.remove();
+  const close = () => { ov.remove(); if (opener && opener.isConnected) opener.focus(); };
+  const focusable = () => Array.from(ov.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])')).filter(el => el.getClientRects().length);
+  ov.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { e.preventDefault(); close(); }
+    if (e.key !== 'Tab') return;
+    const items = focusable(), first = items[0], last = items[items.length - 1];
+    if (!first) { e.preventDefault(); return; }
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
+  const first = focusable()[0]; if (first) first.focus();
   ov.querySelector('.dpp-modal-close').addEventListener('click', close);
   ov.querySelector('.dpp-modal-cancel').addEventListener('click', close);
   ov.addEventListener('click', e => { if (e.target === ov) close(); });
@@ -212,14 +253,22 @@ function bindTopbar() {
   }, 250));
 }
 
-// ── Sidebar (only Dashboard, Price Rules, CSV Import, Settings) ──
+// ── Sidebar: core pages and optional extension groups ──
 function renderSidebar() {
-  const nav = [
+  const coreNav = [
     { key: 'dashboard', icon: 'dashboard', label: 'Dashboard' },
     { key: 'prices',    icon: 'prices',    label: 'Price Rules' },
     { key: 'import',    icon: 'import',    label: 'CSV Import' },
     { key: 'settings', icon: 'settings',  label: 'Settings' },
   ];
+  const groups = new Map();
+  for (const tab of approvedTabs.values()) {
+    const key = tab.group && tab.group_label ? tab.group : 'extensions';
+    if (!groups.has(key)) groups.set(key, {key, label: tab.group_label || 'Extensions', order: Number.isInteger(tab.group_order) ? tab.group_order : 999, items: []});
+    groups.get(key).items.push({key: tab.id, icon: tab.icon || 'settings', label: tab.label, group: key});
+  }
+  const navLink = n => `<a href="#cewp-${encodeURIComponent(n.key)}" class="dpp-nav-link${state.page === n.key ? ' active' : ''}" data-page="${escHtml(n.key)}"${n.group ? ` data-group="${escHtml(n.group)}"` : ''}${state.page === n.key ? ' aria-current="page"' : ''}>
+    ${icons[n.icon] || icons.settings}<span>${escHtml(n.label)}</span></a>`;
 
   const logoUrl = (typeof CEWP !== 'undefined' && (state.theme === 'dark' ? CEWP.logo_dark : CEWP.logo_light)) || '';
   return `
@@ -234,11 +283,22 @@ function renderSidebar() {
         </div>`}
       </div>
       <nav class="dpp-nav" aria-label="Dealer Pricing navigation">
-        ${nav.map(n => `
-          <a class="${state.page === n.key ? 'active' : ''}" data-page="${n.key}">
-            ${icons[n.icon]} <span>${n.label}</span>
-          </a>
-        `).join('')}
+        <div class="dpp-nav-section"><div class="dpp-nav-caption">Main</div>
+          ${coreNav.map(navLink).join('')}
+        </div>
+        ${Array.from(groups.values()).sort((a, b) => a.order - b.order || a.label.localeCompare(b.label)).map(group => {
+          const active = group.items.some(item => item.key === state.page);
+          const expanded = active || openNavGroups.has(group.key);
+          const panelId = `dpp-nav-group-${group.key}`;
+          return `<div class="dpp-nav-group${active ? ' has-active' : ''}">
+            <button type="button" class="dpp-nav-group-toggle" data-nav-group="${escHtml(group.key)}" aria-expanded="${expanded ? 'true' : 'false'}" aria-controls="${escHtml(panelId)}">
+              <span>${escHtml(group.label)}</span><span class="dpp-nav-chevron" aria-hidden="true"></span>
+            </button>
+            <div class="dpp-nav-group-items" id="${escHtml(panelId)}"${expanded ? '' : ' hidden'}>
+              ${group.items.map(navLink).join('')}
+            </div>
+          </div>`;
+        }).join('')}
       </nav>
       <div class="dpp-sidenav-footer">
         <div>Theme: <strong>${state.theme === 'dark' ? 'Dark' : 'Light'}</strong></div>
@@ -252,8 +312,25 @@ function bindNav() {
     el.addEventListener('click', (e) => {
       e.preventDefault();
       state.page = el.dataset.page;
+      if (el.dataset.group) { openNavGroups.clear(); openNavGroups.add(el.dataset.group); }
       render();
       loadPage();
+    });
+  });
+  document.querySelectorAll('.dpp-nav-group-toggle').forEach(button => {
+    button.addEventListener('click', () => {
+      const group = button.dataset.navGroup;
+      const activeTab = approvedTabs.get(state.page);
+      const activeGroup = activeTab ? (activeTab.group && activeTab.group_label ? activeTab.group : 'extensions') : null;
+      if (group === activeGroup) return; // Keep the current page visible.
+      const expand = button.getAttribute('aria-expanded') !== 'true';
+      openNavGroups.clear();
+      if (expand) openNavGroups.add(group);
+      document.querySelectorAll('.dpp-nav-group-toggle').forEach(other => {
+        const show = other.dataset.navGroup === activeGroup || openNavGroups.has(other.dataset.navGroup);
+        other.setAttribute('aria-expanded', show ? 'true' : 'false');
+        document.getElementById(other.getAttribute('aria-controls')).hidden = !show;
+      });
     });
   });
 }
@@ -276,6 +353,7 @@ function render() {
 
 // ── Page router ─────────────────────────────────────────────
 function renderPage() {
+  if (approvedTabs.has(state.page)) return '<div id="cewp-extension-tab" role="region"></div>';
   switch (state.page) {
     case 'dashboard': return renderDashboard();
     case 'prices':    return renderPricesPage();
@@ -286,6 +364,16 @@ function renderPage() {
 }
 
 async function loadPage() {
+  if (approvedTabs.has(state.page)) {
+    const container = document.getElementById('cewp-extension-tab');
+    const renderer = tabRenderers.get(state.page);
+    if (!renderer) { container.textContent = 'This tab is unavailable.'; return; }
+    try {
+      const output = await renderer(container);
+      if (typeof output === 'string') container.innerHTML = output;
+    } catch (e) { container.textContent = 'This tab is unavailable.'; }
+    return;
+  }
   switch (state.page) {
     case 'dashboard': await loadDashboard(); break;
     case 'prices':    await loadPrices();    break;
@@ -303,7 +391,6 @@ function statCard(val, label) {
 
 function renderDashboard() {
   const s = state.stats;
-  const rulesUsed = s.rules_used ?? s.total_rules ?? 0;
   return `
     <div class="dpp-grid">
       <div class="dpp-hero">
@@ -331,8 +418,6 @@ async function loadDashboard() {
     state.stats = {
       total_rules:   stats.total_rules ?? 0,
       total_products: stats.total_products ?? 0,
-      rules_used:    stats.rules_used ?? stats.total_rules ?? 0,
-      rule_limit:   stats.rule_limit ?? 0,
     };
     const statsEl = document.getElementById('dpp-stats');
     if (statsEl) {
@@ -359,7 +444,6 @@ async function loadDashboard() {
 // PRICE RULES (scope_type always "role", scope_value = role slug)
 // ════════════════════════════════════════
 function renderPricesPage() {
-  const rulesUsed = state.stats.rules_used ?? state.stats.total_rules ?? 0;
   return `
     <div class="dpp-pagehead">
       <div>
@@ -424,7 +508,8 @@ async function loadPrices() {
     state.prices.rows  = data.rows || [];
     state.prices.total = data.total || 0;
 
-    document.getElementById('dpp-price-count').textContent = `${state.prices.total} rules`;
+    const countEl = document.getElementById('dpp-price-count');
+    if (countEl) countEl.textContent = `${state.prices.total} rules`;
 
     const tbl = document.getElementById('dpp-prices-table');
     if (!tbl) return;
@@ -595,7 +680,7 @@ async function openPriceModal(id = null) {
     if (!priceValue) { toast('Please enter a price value', 'error'); return false; }
 
     try {
-      await api(id ? `prices/${id}` : 'prices', id ? 'PUT' : 'POST', {
+      const result = await api(id ? `prices/${id}` : 'prices', id ? 'PUT' : 'POST', {
         product_id: productId,
         variation_id: parseInt(variationId, 10) || 0,
         scope_type: 'role',
@@ -604,11 +689,12 @@ async function openPriceModal(id = null) {
         price_value: priceValue,
         min_qty: document.getElementById('pm-min-qty-' + uid)?.value || 1,
       });
+      if (result?.error) throw Object.assign(new Error('Save failed'), { payload: result });
       toast(id ? 'Rule updated!' : 'Rule created!');
       loadPrices();
       return true;
     } catch (e) {
-      const msg = (e.payload && e.payload.message) ? e.payload.message : (e.message || '');
+      const msg = (typeof e.payload?.message === 'string' && e.payload.message.trim()) ? e.payload.message : (e.payload?.error === 'duplicate_rule' ? 'Duplicate rule: a price rule already exists for this product and role. Edit or delete the existing rule first.' : 'Failed to save price rule. Please try again.');
       const errEl = document.getElementById('pm-error-' + uid);
       if (errEl) {
         errEl.textContent = msg;

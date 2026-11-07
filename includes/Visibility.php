@@ -137,12 +137,27 @@ class Visibility {
 
         $user = wp_get_current_user();
         $roles = array_values( array_filter( (array) $user->roles ) );
-        $allowed_ids = Database::get_product_ids_with_role_rules( $roles );
+        $allowed_ids = self::visible_product_ids( $roles );
         if ( empty( $allowed_ids ) ) {
             $query->set( 'post__in', [ 0 ] );
             return;
         }
         $query->set( 'post__in', $allowed_ids );
+    }
+
+    /** Shared dealer allow-list. Validate each listener before passing its list onward. */
+    private static function visible_product_ids( array $roles ): array {
+        $ids = Database::get_product_ids_with_role_rules( $roles );
+        $ids = Pricing::filtered( 'cewp_visible_product_ids', $ids, [ Pricing::ctx() ],
+            static function ( $value ): bool {
+                if ( ! is_array( $value ) ) return false;
+                foreach ( $value as $id ) {
+                    if ( ! is_int( $id ) || $id <= 0 || get_post_type( $id ) !== 'product' ) return false;
+                }
+                return true;
+            }
+        );
+        return array_values( array_unique( $ids ) );
     }
 
     /** On single product page, redirect wholesale customers away from retail-only products when hide setting is on. */
@@ -154,7 +169,7 @@ class Visibility {
         $product_id = get_the_ID();
         $user = wp_get_current_user();
         $roles = array_values( array_filter( (array) $user->roles ) );
-        $allowed_ids = Database::get_product_ids_with_role_rules( $roles );
+        $allowed_ids = self::visible_product_ids( $roles );
         if ( ! in_array( (int) $product_id, $allowed_ids, true ) ) {
             wp_safe_redirect( wc_get_page_permalink( 'shop' ) );
             exit;

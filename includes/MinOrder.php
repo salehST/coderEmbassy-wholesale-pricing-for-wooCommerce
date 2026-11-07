@@ -5,7 +5,8 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 /**
- * MinOrder – shows minimum order notice for wholesale customers (display-only; no checkout block).
+ * MinOrder – shows minimum order notice for wholesale customers.
+ * When require_before_whl is enabled, blocks checkout until minimum is met.
  */
 class MinOrder {
 
@@ -36,7 +37,7 @@ class MinOrder {
                 __( 'Minimum order amount for wholesale is %1$s. Add %2$s more to qualify.', 'coderembassy-wholesale-pricing' ),
                 wc_price($rule->min_subtotal), wc_price($remaining)
             );
-            if ( cewp_is_pro() && $rule->require_before_whl ) {
+            if ( $rule->require_before_whl ) {
                 wc_add_notice( $msg, 'error' );
             } else {
                 wc_add_notice( $msg, 'notice' );
@@ -49,7 +50,7 @@ class MinOrder {
                 __( 'Minimum %1$d items required for wholesale pricing. You have %2$d.', 'coderembassy-wholesale-pricing' ),
                 $rule->min_qty_total, $qty
             );
-            if ( cewp_is_pro() && $rule->require_before_whl ) {
+            if ( $rule->require_before_whl ) {
                 wc_add_notice( $msg, 'error' );
             } else {
                 wc_add_notice( $msg, 'notice' );
@@ -58,7 +59,6 @@ class MinOrder {
     }
 
     public static function check_checkout(): void {
-        if ( ! cewp_is_pro() ) return;
         $rule = self::get_rule();
         if ( ! $rule || ! $rule->require_before_whl ) return;
 

@@ -4,7 +4,7 @@
  * Plugin Name:       CoderEmbassy Wholesale Pricing for WooCommerce
  * Plugin URI:         https://github.com/salehST/coderEmbassy-wholesale-pricing-for-wooCommerce 
  * Description:       A powerful wholesale pricing plugin for WooCommerce, allowing role-based pricing and discounts.
- * Version:           1.0.0
+ * Version:           1.1.0
  * Author:            codersaleh
  * Author URI:        https://coderembassy.com/
  * License: GPLv2 or later
@@ -12,9 +12,9 @@
  * Text Domain:       coderembassy-wholesale-pricing
  * Requires at least: 6.0
  * Requires PHP:      8.0
- * Tested up to:      6.9
+ * Tested up to:      7.1
  * WC requires at least: 7.0
- * WC tested up to:   10.2 
+ * WC tested up to:   10.5.3 
  * Requires Plugins: woocommerce
  * 
  */
@@ -22,18 +22,11 @@
 if (! defined('ABSPATH')) exit;
 
 // ── Constants ────────────────────────────────────────────────────────────────
-define('CEWP_VERSION',  '1.0.0');
+define('CEWP_VERSION',  '1.1.0');
 define('CEWP_FILE',     __FILE__);
 define('CEWP_DIR',      plugin_dir_path(__FILE__));
 define('CEWP_URL',      plugin_dir_url(__FILE__));
 define('CEWP_BASENAME', plugin_basename(__FILE__));
-// Plugin is fully functional; no tier or rule limits.
-if (! function_exists('cewp_is_pro')) {
-    function cewp_is_pro(): bool
-    {
-        return false;
-    }
-}
 
 // ── Autoloader ───────────────────────────────────────────────────────────────
 spl_autoload_register(function (string $class) {
@@ -42,6 +35,9 @@ spl_autoload_register(function (string $class) {
     $path = str_replace([$prefix, '\\'], [CEWP_DIR . 'includes/', '/'], $class) . '.php';
     if (file_exists($path)) require_once $path;
 });
+
+// Public read API is available for add-ons after Free loads.
+require_once CEWP_DIR . 'includes/PriceTiers.php';
 
 // ── HPOS compatibility ───────────────────────────────────────────────────────
 add_action('before_woocommerce_init', function () {
@@ -60,21 +56,32 @@ add_action('plugins_loaded', function () {
         return;
     }
 
+    if (\CEWP\Compat::legacy_pro_active()) {
+        \CEWP\Compat::notice();
+        return;
+    }
+
     \CEWP\Database::migrate_dps_to_cewp();
     \CEWP\Database::install_if_needed();
     \CEWP\Roles::init();
     \CEWP\Pricing::init();
-    \CEWP\MinOrder::init();
     \CEWP\Visibility::init();
     \CEWP\Admin\Menu::init();
     \CEWP\Admin\ProductMeta::init();
     \CEWP\Admin\OrderColumn::init();
     \CEWP\REST\Controller::init();
     \CEWP\Import::init();
-});
+    do_action('cewp_loaded', CEWP_VERSION);
+}, 20);
 
 // ── Activation / Deactivation / Uninstall ────────────────────────────────────
-register_activation_hook(CEWP_FILE, ['\CEWP\Database', 'install']);
-register_activation_hook(CEWP_FILE, ['\CEWP\Roles',    'create_default_roles']);
+register_activation_hook(CEWP_FILE, function () {
+    if (\CEWP\Compat::legacy_pro_active()) return;
+    \CEWP\Database::install();
+});
+register_activation_hook(CEWP_FILE, function () {
+    if (\CEWP\Compat::legacy_pro_active()) return;
+    \CEWP\Roles::create_default_roles();
+});
 register_deactivation_hook(CEWP_FILE, ['\CEWP\Roles',  'flush_rewrite']);
 register_uninstall_hook(CEWP_FILE,    ['\CEWP\Database', 'uninstall']);

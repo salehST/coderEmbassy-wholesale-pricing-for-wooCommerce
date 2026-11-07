@@ -6,6 +6,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 // phpcs:disable WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
+// Keep shared CRUD usable when loaded directly by maintenance tools.
+require_once __DIR__ . '/Scopes.php';
+require_once __DIR__ . '/Pricing.php';
+
 class Database {
 
     public static function t( string $name ): string {
@@ -93,6 +97,7 @@ class Database {
 
     public static function install(): void {
         global $wpdb;
+        $old_version = (string) get_option('cewp_db_version', '0');
         $c = $wpdb->get_charset_collate();
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
@@ -105,6 +110,8 @@ class Database {
             PRIMARY KEY (id),
             UNIQUE KEY uq_role_key (role_key)
         ) $c;" );
+
+        if ( $wpdb->last_error ) return;
 
         dbDelta( "CREATE TABLE " . self::t('prices') . " (
             id              BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -125,12 +132,41 @@ class Database {
             KEY idx_scope   (scope_type, scope_value)
         ) $c;" );
 
+        if ( $wpdb->last_error ) return;
         update_option( 'cewp_db_version', CEWP_VERSION );
+        if ( version_compare($old_version, CEWP_VERSION, '<') && get_option('cewp_db_version') === CEWP_VERSION ) {
+            do_action('cewp_install', $old_version, CEWP_VERSION);
+        }
     }
 
     public static function uninstall(): void {
         global $wpdb;
-        if ( ! get_option( 'cewp_delete_on_uninstall' ) ) return;
+        $settings = get_option( 'cewp_settings', [] );
+        if ( empty( $settings['delete_on_uninstall'] ) ) return;
+
+        // Retain shared data while an active or inactive add-on is installed.
+        $dependents = [ 'coderembassy-wholesale-pricing-agency/coderembassy-wholesale-pricing-agency.php' ];
+        try {
+            $discovered = false;
+            if ( defined( 'WP_PLUGIN_DIR' ) ) {
+                if ( ! is_dir( WP_PLUGIN_DIR ) || ! is_readable( WP_PLUGIN_DIR ) ) return;
+                foreach ( $dependents as $file ) {
+                    if ( file_exists( WP_PLUGIN_DIR . '/' . $file ) ) return;
+                }
+                $discovered = true;
+            }
+            if ( function_exists( 'get_plugins' ) ) {
+                $plugins = get_plugins();
+                if ( ! is_array( $plugins ) ) return;
+                foreach ( $dependents as $file ) {
+                    if ( isset( $plugins[$file] ) ) return;
+                }
+                $discovered = true;
+            }
+            if ( ! $discovered ) return;
+        } catch ( \Throwable $e ) {
+            return;
+        }
         foreach ( [ 'prices', 'roles' ] as $t ) {
             $wpdb->query( "DROP TABLE IF EXISTS " . self::t( $t ) );
         }
@@ -147,6 +183,7 @@ class Database {
     public static function save_settings( array $data ): void {
         $settings = get_option( 'cewp_settings', [] );
         update_option( 'cewp_settings', array_merge( $settings, $data ) );
+        Pricing::invalidate();
     }
 
     // ── Roles CRUD ───────────────────────────────────────────────────────────
@@ -165,9 +202,11 @@ class Database {
         ];
         if ( ! empty( $data['id'] ) ) {
             $wpdb->update( self::t('roles'), $fields, ['id' => absint($data['id'])] );
+            Roles::invalidate();
             return absint( $data['id'] );
         }
         $wpdb->insert( self::t('roles'), $fields );
+        Roles::invalidate();
         return (int) $wpdb->insert_id;
     }
 
@@ -182,22 +221,6 @@ class Database {
     public static function get_rule_count(): int {
         global $wpdb;
         return (int) $wpdb->get_var( "SELECT COUNT(*) FROM " . self::t('prices') );
-    }
-
-    public static function is_at_limit(): bool {
-        return false;
-    }
-
-    /** All rule IDs (all rules are manageable). */
-    public static function get_manageable_rule_ids(): array {
-        global $wpdb;
-        $ids = $wpdb->get_col( "SELECT id FROM " . self::t( 'prices' ) . " ORDER BY id ASC" );
-        return array_map( 'intval', $ids ?: [] );
-    }
-
-    /** Whether this rule can be edited in admin (all rules can). */
-    public static function is_rule_manageable( int $rule_id ): bool {
-        return true;
     }
 
     /** Check if a rule already exists for this product (or variation) and scope. */
@@ -218,12 +241,16 @@ class Database {
         if ( empty( $d['id'] ) ) {
             // continue
         }
-        // Role-based pricing only
-        $scope_type = 'role';
+        $scope_type = $d['scope_type'] ?? 'role';
+        if ( ! is_string( $scope_type ) || ! Scopes::valid( $scope_type, (string)($d['scope_value'] ?? '') ) || ! Pricing::valid_rule( $d ) ) return false;
         $scope_value = sanitize_text_field( $d['scope_value'] ?? '' );
-        $product_id   = absint( $d['product_id'] );
+        $product_id   = absint( $d['product_id'] ?? 0 );
         $variation_id = absint( $d['variation_id'] ?? 0 );
         $exclude_id   = ! empty( $d['id'] ) ? absint( $d['id'] ) : null;
+        if ( $exclude_id ) {
+            $stored = self::get_price( $exclude_id );
+            if ( ! $stored || ! Scopes::valid( $stored->scope_type, $stored->scope_value ) ) return false;
+        }
         if ( self::rule_exists( $product_id, $variation_id, $scope_type, $scope_value, $exclude_id ) ) {
             return false; /* duplicate: same product/variation + role */
         }
@@ -232,29 +259,38 @@ class Database {
             'variation_id' => $variation_id,
             'scope_type'   => $scope_type,
             'scope_value'  => $scope_value,
-            'price_type'   => sanitize_text_field( $d['price_type'] ),
-            'price_value'  => (float) $d['price_value'],
+            'price_type'   => sanitize_text_field( $d['price_type'] ?? '' ),
+            'price_value'  => (float) ( $d['price_value'] ?? 0 ),
             'sale_price'   => isset($d['sale_price']) && $d['sale_price'] !== '' ? (float)$d['sale_price'] : null,
             'min_qty'      => absint( $d['min_qty'] ?? 1 ),
             'date_from'    => null,
             'date_to'      => null,
         ];
+        Pricing::invalidate();
         if ( $exclude_id ) {
-            $wpdb->update( self::t('prices'), $fields, ['id' => $exclude_id] );
-            return $exclude_id;
+            if ( ! self::get_price( $exclude_id ) ) return false;
+            $result = $wpdb->update( self::t('prices'), $fields, ['id' => $exclude_id] );
+            return $result === false ? false : $exclude_id;
         }
-        $wpdb->insert( self::t('prices'), $fields );
-        return (int) $wpdb->insert_id;
+        $result = $wpdb->insert( self::t('prices'), $fields );
+        return $result === false ? false : (int) $wpdb->insert_id;
     }
 
     public static function get_price( int $id ): ?object {
         global $wpdb;
-        return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM " . self::t('prices') . " WHERE id=%d", $id ) );
+        $row = $wpdb->get_row( $wpdb->prepare(
+            "SELECT p.*, po.post_title AS product_name FROM " . self::t('prices') . " p LEFT JOIN {$wpdb->posts} po ON po.ID=CASE WHEN p.variation_id>0 THEN p.variation_id ELSE p.product_id END WHERE p.id=%d", $id
+        ) );
+        if ( $row && empty( $row->product_name ) ) $row->product_name = __( 'Product unavailable', 'coderembassy-wholesale-pricing' );
+        return $row;
     }
 
     public static function delete_price( int $id ): void {
         global $wpdb;
+        $row = self::get_price( $id );
+        if ( ! $row || ! Scopes::valid( $row->scope_type, $row->scope_value ) ) return;
         $wpdb->delete( self::t('prices'), ['id' => $id] );
+        Pricing::invalidate();
     }
 
     public static function list_prices( array $args = [] ): array {
@@ -273,6 +309,10 @@ class Database {
         if ( ! empty( $args['scope_value'] ) ) { $w .= ' AND p.scope_value=%s'; $qa[] = $args['scope_value']; }
         if ( ! empty( $args['price_type'] ) )  { $w .= ' AND p.price_type=%s';  $qa[] = $args['price_type']; }
 
+        $types = Scopes::allowed();
+        if ( ! $types ) return ['total'=>0,'rows'=>[]];
+        $w .= ' AND p.scope_type IN (' . implode( ',', array_fill( 0, count( $types ), '%s' ) ) . ')';
+        $qa = array_merge( $qa, $types );
         $total_args = $qa;
         $total = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM " . self::t('prices') . " p LEFT JOIN {$wpdb->posts} po ON po.ID=p.product_id WHERE $w", ...$total_args ) );
         $qa[] = $per; $qa[] = $off;
@@ -302,24 +342,17 @@ class Database {
         $sql .= " ) AND (date_from IS NULL OR date_from<=%s) AND (date_to IS NULL OR date_to>=%s) ORDER BY _pri ASC, variation_id DESC";
         $args[] = $today; $args[] = $today;
 
-        return $wpdb->get_results( $wpdb->prepare($sql, ...$args) );
+        $rows = $wpdb->get_results( $wpdb->prepare($sql, ...$args) );
+        $types = Scopes::allowed();
+        return array_values( array_filter( $rows, static fn( $r ) => in_array( $r->scope_type, $types, true ) ) );
     }
 
     public static function get_stats(): array {
         global $wpdb;
         return [
             'total_rules'   => (int) $wpdb->get_var( "SELECT COUNT(*) FROM " . self::t('prices') ),
-            'total_groups'  => 0,
-            'total_dealers' => 0,
             'total_products'=> (int) $wpdb->get_var( "SELECT COUNT(DISTINCT product_id) FROM " . self::t('prices') ),
-            'rule_limit'    => 0,
-            'rules_used'    => self::get_rule_count(),
         ];
-    }
-
-    /** Min order: display-only notice (no enforcement). */
-    public static function get_min_order( string $role_key ): ?object {
-        return null;
     }
 
     /** Product IDs that have at least one price rule for the given role(s). Used to hide retail-only products from wholesale. */
