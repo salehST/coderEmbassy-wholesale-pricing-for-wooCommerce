@@ -18,8 +18,8 @@ class Menu
     public static function register(): void
     {
         add_menu_page(
-            'CoderEmbassy Wholesale Pricing',
-            'CoderEmbassy Wholesale Pricing',
+            'Wholesale Pricing',
+            'Wholesale Pricing',
             'manage_woocommerce',
             'coderembassy-wholesale-pricing',
             [__CLASS__, 'render'],
